@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulación de Almacenamiento Físico de Base de Datos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="main-header">
+        <h1>SIMULACIÓN DE ALMACENAMIENTO FÍSICO Y BÚSQUEDA DE DATOS</h1>
+        <p>Gestión de Persistencia Estructurada en Disco</p>
+    </header>
+
+    <div class="dashboard-grid">
+        
+        <section class="panel">
+            <h2>1. Configuración del Hardware de Almacenamiento</h2>
+            <div class="form-group-grid">
+                <div class="field">
+                    <label>Número de Platos:</label>
+                    <input type="number" id="in-platos" min="1">
+                </div>
+                <div class="field">
+                    <label>Pistas por Superficie:</label>
+                    <input type="number" id="in-pistas" min="1">
+                </div>
+                <div class="field">
+                    <label>Sectores por Pista:</label>
+                    <input type="number" id="in-sectores" min="1">
+                </div>
+                <div class="field">
+                    <label>Capacidad del Sector (Bytes):</label>
+                    <input type="number" id="in-bytes" min="1">
+                </div>
+            </div>
+            <button id="btn-init-disk" class="btn-primary">Inicializar Parámetros de Disco</button>
+            
+            <div class="info-box-metric" id="metric-capacity">
+                Capacidad Calculada de Memoria Secundaria: <strong>- MB</strong>
+            </div>
+
+            <div class="visual-platters-container" id="visual-platters">
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>2. Ingreso de Estructura y Datos de la Tabla</h2>
+            
+            <div class="sub-section">
+                <h3>Carga del Esquema Relacional y Registros (.csv / .txt)</h3>
+                <input type="file" id="file-picker" accept=".csv,.txt">
+                <div class="status-log" id="log-csv">Estado de la persistencia: En espera.</div>
+            </div>
+
+            <div class="sub-section table-schema-bound" style="margin-top:20px;">
+                <h3>Inserción Manual Unitaria (Validación del Esquema Relacional)</h3>
+                <div id="container-manual-fields" class="form-group-grid">
+                    <p style="color:#64748b; font-size:13px; grid-column: 1/-1;">Cargue primero la base de datos para heredar la estructura relacional de las columnas.</p>
+                </div>
+                <button id="btn-insert-manual" class="btn-secondary" style="margin-top:10px;" disabled>Persistir Registro Individual</button>
+                <div class="status-log" id="log-manual">Estado de inserción: Inactivo.</div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>3. Mapa de Persistencia y Ocupación Física</h2>
+            <p style="font-size:13px; color:#64748b; margin-top:-10px; margin-bottom:15px;">Bit-Map lógico representativo de los sectores del hardware de almacenamiento</p>
+            
+            <div class="bitmap-legend">
+                <div class="leg-item"><span class="box-empty"></span> Sector Disponible</div>
+                <div class="leg-item"><span class="box-filled"></span> Sector Asignado (Con Persistencia)</div>
+            </div>
+
+            <div class="bitmap-grid" id="disk-bitmap">
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>4. Ingreso de Consulta (Módulo de Búsqueda)</h2>
+            
+            <div class="form-group-grid">
+                <div class="field">
+                    <label>Tipo de Búsqueda:</label>
+                    <select id="select-query-type">
+                        <option value="exact">Búsqueda por Elemento (Valor Exacto)</option>
+                        <option value="range">Búsqueda por Rango de Datos</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Elemento / Columna Objetivo:</label>
+                    <select id="select-query-col">
+                        <option value="">(Requiere carga previa de datos)</option>
+                    </select>
+                </div>
+                <div class="field" id="box-val">
+                    <label>Criterio Exacto a Buscar:</label>
+                    <input type="text" id="query-val">
+                </div>
+                <div class="field" id="box-min" style="display:none;">
+                    <label>Límite Inferior del Rango:</label>
+                    <input type="text" id="query-min">
+                </div>
+                <div class="field" id="box-max" style="display:none;">
+                    <label>Límite Superior del Rango:</label>
+                    <input type="text" id="query-max">
+                </div>
+            </div>
+
+            <button id="btn-run-query" class="btn-primary" style="margin-top:15px;">Ejecutar Búsqueda de Datos</button>
+            
+            <div id="avl-height-log"></div>
+        </section>
+
+    </div>
+
+    <section class="panel results-panel">
+        <h2>Direcciones Únicas Asignadas a los Registros Encontrados</h2>
+        <div class="table-wrapper">
+            <table class="results-table" id="table-results">
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Dirección Física Única Basada en Geometría (Plato, Cara, Pista, Sector)</th>
+                        <th>Campos Estructurados del Registro Recuperado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="2" style="text-align:center; color:#64748b;">No se han ejecutado búsquedas sobre los elementos de la tabla.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <script src="script.js"></script>
+</body>
+</html>

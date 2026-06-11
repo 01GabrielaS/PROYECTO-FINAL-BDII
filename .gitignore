@@ -1,0 +1,9 @@
+node_modules/
+motor_db
+disk.bin
+disk_state.dat
+hardware.cfg
+schema.cfg
+input_subproceso.csv
+otros/
+.DS_Store
