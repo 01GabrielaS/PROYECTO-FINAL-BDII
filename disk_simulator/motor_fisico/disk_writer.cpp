@@ -2,10 +2,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <iostream>
-
-// ─────────────────────────────────────────────────────────────────
 //  Constructor — abre o crea el archivo disk.bin
-// ─────────────────────────────────────────────────────────────────
 DiskWriter::DiskWriter(const std::string& filepath,
                        DiskGeometry&      geometry,
                        FreeBitmap&        bitmap,
@@ -15,12 +12,10 @@ DiskWriter::DiskWriter(const std::string& filepath,
     , bitmap_  (bitmap)
 {
     if (create_new) {
-        // Crear archivo nuevo y llenarlo de ceros
         file_.open(filepath, std::ios::out | std::ios::binary | std::ios::trunc);
         if (!file_.is_open())
             throw std::runtime_error("No se pudo crear el archivo: " + filepath);
 
-        // Inicializar todos los sectores con ceros
         uint32_t B = geometry_.get_bytes_per_sector();
         std::vector<uint8_t> zeros(B, 0x00);
         for (uint32_t lba = 0; lba < geometry_.total_sectors(); ++lba)
@@ -29,7 +24,6 @@ DiskWriter::DiskWriter(const std::string& filepath,
         file_.close();
     }
 
-    // Abrir en modo lectura/escritura binaria
     file_.open(filepath, std::ios::in | std::ios::out | std::ios::binary);
     if (!file_.is_open())
         throw std::runtime_error("No se pudo abrir el archivo: " + filepath);
@@ -42,9 +36,7 @@ DiskWriter::~DiskWriter() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────
 //  Helpers de I/O de bajo nivel
-// ─────────────────────────────────────────────────────────────────
 std::streampos DiskWriter::offset_of(uint32_t lba) const {
     return static_cast<std::streampos>(lba) * geometry_.get_bytes_per_sector();
 }
@@ -67,34 +59,20 @@ void DiskWriter::read_sector(uint32_t lba, uint8_t* sector_buf) {
         throw std::runtime_error("Error de lectura en LBA " + std::to_string(lba));
 }
 
-// ─────────────────────────────────────────────────────────────────
-//  write_record — implementa los 6 pasos del PDF
-//
-//  Layout de cada sector en disco:
-//  ┌─────────────────────────┬──────────────────────────────────┐
-//  │   SectorHeader (9 B)    │   DATA (useful_bytes B)          │
-//  └─────────────────────────┴──────────────────────────────────┘
-// ─────────────────────────────────────────────────────────────────
+//Uso de spnaning para registros de tamaño mayor
 WriteResult DiskWriter::write_record(RecordID       record_id,
                                      const uint8_t* data,
                                      uint32_t       size)
 {
     const uint32_t B  = geometry_.get_bytes_per_sector();
-    const uint32_t UB = geometry_.useful_bytes();          // B - 9
+    const uint32_t UB = geometry_.useful_bytes(); 
 
-    // ── Paso 1: calcular sectores necesarios ───────────────────
-    uint32_t n_sectors = geometry_.sectors_needed(size);   // ceil(size/UB)
-
-    // ── Paso 2: pedir N LBAs al bitmap ────────────────────────
-    // alloc() lanza std::runtime_error si no hay espacio (capa 2)
-    std::vector<uint32_t> lbas = bitmap_.alloc(n_sectors);
-
-    // Buffer temporal de un sector completo
+    uint32_t n_sectors = geometry_.sectors_needed(size);   
+    std::vector<uint32_t> lbas = bitmap_.alloc(n_sectors); //n° de lbas
     std::vector<uint8_t> sector_buf(B, 0x00);
 
     uint32_t data_offset = 0;  // cuántos bytes ya escribimos
 
-    // ── Pasos 3, 4, 5: escribir cada sector ───────────────────
     for (uint32_t i = 0; i < n_sectors; ++i) {
         uint32_t lba = lbas[i];
 
@@ -104,36 +82,22 @@ WriteResult DiskWriter::write_record(RecordID       record_id,
         else if (i == 0)            flag = FLAG_START;
         else if (i == n_sectors-1)  flag = FLAG_END;
         else                        flag = FLAG_CONT;
-
-        // Para un registro de un solo sector el flag es START
-        // pero NEXT_LBA_NONE indica que es el último.
-        // Si el registro cabe exactamente en 1 sector, ponemos FLAG_START
-        // y NEXT_LBA_NONE (el lector sabe que START + NONE = registro completo).
-
         // NEXT_SECTOR_LBA
         uint32_t next_lba = (i < n_sectors - 1) ? lbas[i + 1] : NEXT_LBA_NONE;
-
-        // Construir el header
         SectorHeader header(flag, record_id, next_lba);
-
-        // Cuántos bytes de data van en este sector
-        uint32_t bytes_left    = size - data_offset;
+        uint32_t bytes_left    = size - data_offset; //bytes restantes en sector
         uint32_t bytes_to_copy = (bytes_left < UB) ? bytes_left : UB;
 
-        // Limpiar buffer y escribir header + fragmento de datos
         std::fill(sector_buf.begin(), sector_buf.end(), 0x00);
         header.to_bytes(sector_buf.data());
         std::memcpy(sector_buf.data() + SECTOR_HEADER_SIZE,
                     data + data_offset,
                     bytes_to_copy);
 
-        // ── Paso 3/4/5: escribir el sector en disk.bin ────────
         write_sector(lba, sector_buf.data());
 
         data_offset += bytes_to_copy;
     }
-    // ── Paso 6: bitmap ya marcado por alloc() ─────────────────
-
     WriteResult result;
     result.start_lba   = lbas[0];
     result.num_sectors = n_sectors;
@@ -141,10 +105,7 @@ WriteResult DiskWriter::write_record(RecordID       record_id,
     return result;
 }
 
-// ─────────────────────────────────────────────────────────────────
-//  read_record — sigue la cadena de NEXT_SECTOR_LBA
-//  hasta encontrar NEXT_LBA_NONE (último sector)
-// ─────────────────────────────────────────────────────────────────
+//  lee del primer sector al ultimo
 ReadResult DiskWriter::read_record(uint32_t start_lba) {
     const uint32_t B  = geometry_.get_bytes_per_sector();
     const uint32_t UB = geometry_.useful_bytes();
@@ -155,11 +116,8 @@ ReadResult DiskWriter::read_record(uint32_t start_lba) {
     uint32_t current_lba = start_lba;
 
     while (true) {
-        // Leer sector completo
         read_sector(current_lba, sector_buf.data());
         result.lba_chain.push_back(current_lba);
-
-        // Deserializar header
         SectorHeader header = SectorHeader::from_bytes(sector_buf.data());
 
         // Verificar que el sector no está libre (corrupción / LBA incorrecto)
