@@ -57,10 +57,16 @@ public:
     // Escribe 'data' (size bytes) en disco asociándolo a record_id.
     // Aplica spanning si size > useful_bytes().
     // Devuelve la info que el AVL necesita guardar.
-    WriteResult write_record(RecordID        record_id,
-                             const uint8_t*  data,
-                             uint32_t        size);
+    WriteResult write_record(RecordID record_id, const uint8_t*  data, uint32_t        size);
+    
+    WriteResult write_record_fields(RecordID record_id,const std::vector<std::pair<const uint8_t*, uint32_t>>& fields);
 
+    // Simula el packing sin escribir nada — útil para Capa 2.
+    // Recibe solo los tamaños de los campos, no los datos.
+    static uint32_t sectors_for_fields(
+        uint32_t                     useful_bytes,
+        const std::vector<uint32_t>& field_sizes);
+                             
     // ── Lectura ────────────────────────────────────────────────
     // Lee el registro que empieza en start_lba siguiendo la cadena.
     ReadResult read_record(uint32_t start_lba);

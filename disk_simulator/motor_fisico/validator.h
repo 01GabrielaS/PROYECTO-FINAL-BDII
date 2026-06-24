@@ -88,4 +88,6 @@ public:
     // Recibe un vector con los tamaños en bytes de cada campo.
     // Útil para que Diego no tenga que hacer la suma él mismo.
     static uint32_t compute_record_size(const std::vector<uint32_t>& field_sizes);
+    static void validate_insert_sectors(uint32_t          sectors_needed,
+                                        const FreeBitmap& bitmap);
 };

@@ -43,3 +43,13 @@ void Validator::validate_insert(uint32_t            record_size,
 uint32_t Validator::compute_record_size(const std::vector<uint32_t>& field_sizes) {
     return std::accumulate(field_sizes.begin(), field_sizes.end(), 0u);
 }
+
+//Recibe el n°de sectores ya calculado con integridad de campo
+void Validator::validate_insert_sectors(uint32_t          sectors_needed,
+                                        const FreeBitmap& bitmap)
+{
+    uint32_t sectores_libres = bitmap.count_free();
+
+    if (sectors_needed > sectores_libres)
+        throw InsertSpaceError(sectors_needed, sectores_libres);
+}

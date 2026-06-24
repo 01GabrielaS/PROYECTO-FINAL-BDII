@@ -105,6 +105,113 @@ WriteResult DiskWriter::write_record(RecordID       record_id,
     return result;
 }
 
+uint32_t DiskWriter::sectors_for_fields(
+    uint32_t                     useful_bytes,
+    const std::vector<uint32_t>& field_sizes)
+{
+    uint32_t sectors = 1;
+    uint32_t cursor  = 0;   // bytes usados en el sector actual
+
+    for (uint32_t fs : field_sizes) {
+        if (fs == 0) continue;
+
+        if (fs > useful_bytes)
+            throw std::runtime_error(
+                "sectors_for_fields: campo de " + std::to_string(fs) +
+                " bytes supera useful_bytes=" + std::to_string(useful_bytes) +
+                ". Redefina el esquema o aumente el tamaño del sector.");
+
+        if (cursor + fs > useful_bytes) {
+            // El campo no cabe → cerramos el sector actual
+            ++sectors;
+            cursor = 0;
+        }
+        cursor += fs;
+    }
+    return sectors;
+}
+
+
+WriteResult DiskWriter::write_record_fields(
+    RecordID record_id,
+    const std::vector<std::pair<const uint8_t*, uint32_t>>& fields)
+{
+    const uint32_t B  = geometry_.get_bytes_per_sector();
+    const uint32_t UB = geometry_.useful_bytes();   // B - SECTOR_HEADER_SIZE
+
+    // ── Paso 1: construir payloads de sectores en RAM ──────────
+    //   Cada sector tendrá exactamente UB bytes de payload
+    //   (el último puede tener datos reales + ceros de padding).
+    std::vector<std::vector<uint8_t>> payloads;
+    std::vector<uint8_t> current(UB, 0x00);
+    uint32_t cursor = 0;   // bytes escritos en el sector actual
+
+    for (auto& [field_ptr, field_size] : fields) {
+        if (field_size == 0) continue;
+
+        // Verificación: ningún campo puede ser mayor que UB
+        if (field_size > UB)
+            throw std::runtime_error(
+                "write_record_fields: campo de " + std::to_string(field_size) +
+                " bytes supera useful_bytes=" + std::to_string(UB) +
+                ". Redefina el esquema o aumente el tamaño del sector.");
+
+        // Si el campo no cabe en los bytes restantes del sector actual,
+        // cerramos ese sector (los bytes sin usar quedan como padding 0x00)
+        // y abrimos uno nuevo.
+        if (cursor + field_size > UB) {
+            payloads.push_back(current);
+            current.assign(UB, 0x00);
+            cursor = 0;
+        }
+
+        // Copiar el campo al sector actual
+        std::memcpy(current.data() + cursor, field_ptr, field_size);
+        cursor += field_size;
+    }
+
+    // Guardar el último sector (puede estar parcialmente lleno → fragmentación interna OK)
+    payloads.push_back(current);
+
+    const uint32_t n_sectors = static_cast<uint32_t>(payloads.size());
+
+    // ── Paso 2: pedir N LBAs al bitmap ────────────────────────
+    std::vector<uint32_t> lbas = bitmap_.alloc(n_sectors);
+
+    // ── Pasos 3-5: escribir cada sector con su header ──────────
+    std::vector<uint8_t> sector_buf(B, 0x00);
+
+    for (uint32_t i = 0; i < n_sectors; ++i) {
+        uint32_t lba = lbas[i];
+
+        // FLAG según posición en la cadena
+        uint8_t flag;
+        if      (n_sectors == 1)    flag = FLAG_START;   // registro de un solo sector
+        else if (i == 0)            flag = FLAG_START;
+        else if (i == n_sectors-1)  flag = FLAG_END;
+        else                        flag = FLAG_CONT;
+
+        uint32_t next_lba = (i < n_sectors - 1) ? lbas[i + 1] : NEXT_LBA_NONE;
+
+        SectorHeader header(flag, record_id, next_lba);
+
+        std::fill(sector_buf.begin(), sector_buf.end(), 0x00);
+        header.to_bytes(sector_buf.data());
+        std::memcpy(sector_buf.data() + SECTOR_HEADER_SIZE,
+                    payloads[i].data(),
+                    UB);   // siempre UB bytes (ya paddeado con ceros)
+
+        write_sector(lba, sector_buf.data());
+    }
+    // bitmap ya marcado como OCUPADO por alloc()
+
+    WriteResult result;
+    result.start_lba   = lbas[0];
+    result.num_sectors = n_sectors;
+    result.lba_chain   = lbas;
+    return result;
+}
+
 //  lee del primer sector al ultimo
 ReadResult DiskWriter::read_record(uint32_t start_lba) {
     const uint32_t B  = geometry_.get_bytes_per_sector();

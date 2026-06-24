@@ -67,6 +67,34 @@ WriteResult DiskEngine::insert(RecordID       record_id,
     return writer_->write_record(record_id, data, size);
 }
 
+WriteResult DiskEngine::insert_fields(
+    RecordID record_id,
+    const std::vector<std::pair<const uint8_t*, uint32_t>>& fields)
+{
+    check_configured();
+
+    // Extraer tamaños de campo para calcular sectores necesarios
+    std::vector<uint32_t> field_sizes;
+    field_sizes.reserve(fields.size());
+    for (auto& [ptr, sz] : fields)
+        field_sizes.push_back(sz);
+
+    // Capa 2: verificar espacio antes de tocar el disco
+    uint32_t n = DiskWriter::sectors_for_fields(geometry_->useful_bytes(), field_sizes);
+    Validator::validate_insert_sectors(n, *bitmap_);
+
+    // Escritura con integridad de campo
+    return writer_->write_record_fields(record_id, fields);
+}
+
+uint32_t DiskEngine::sectors_needed_for_fields(
+    const std::vector<uint32_t>& field_sizes) const
+{
+    check_configured();
+    return DiskWriter::sectors_for_fields(geometry_->useful_bytes(), field_sizes);
+}
+
+
 // ─────────────────────────────────────────────────────────────────
 //  read — lectura siguiendo la cadena de LBAs
 // ─────────────────────────────────────────────────────────────────
