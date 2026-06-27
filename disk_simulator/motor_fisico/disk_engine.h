@@ -53,11 +53,10 @@ public:
                        const uint8_t*  data,
                        uint32_t        size);
 
-    WriteResult DiskEngine::insert_fields(
-    RecordID record_id,
+    WriteResult insert_fields( RecordID record_id,
     const std::vector<std::pair<const uint8_t*, uint32_t>>& fields);
 
-    uint32_t DiskEngine::sectors_needed_for_fields(
+    uint32_t sectors_needed_for_fields(
     const std::vector<uint32_t>& field_sizes) const;
 
     // ── READ ───────────────────────────────────────────────────

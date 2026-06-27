@@ -6,31 +6,17 @@
 #include <algorithm>
 #include <iostream>
 #include <cmath>
+#include <utility>
 
-// ================================================================
-//  AVLIndex<KeyType>
-//
-//  Árbol AVL en RAM.  Indexa por cualquier clave comparable.
-//  Cada nodo guarda:
-//    - key          : clave de búsqueda (int, float, string, …)
-//    - record_id    : RecordID de Gabriela (uint32 empaquetado)
-//    - start_lba    : LBA inicial en disco  (viene de WriteResult)
-//    - num_sectors  : sectores del registro (viene de WriteResult)
-//
-//  Puntos de integración con DiskEngine (Gabriela):
-//    INSERT  → Diego llama engine.insert() → obtiene WriteResult
-//              → llama avl.insert(key, rid, wr)
-//    READ    → avl.search(key) → devuelve IndexEntry
-//              → Iair llama engine.read(entry.start_lba)
-//    DELETE  → avl.remove(key, [&](IndexEntry& e){
-//                  engine.remove(e.start_lba); })
-//
-//  Responsable: Iair
-// ================================================================
+template<typename A, typename B>
+std::ostream& operator<<(std::ostream& os, const std::pair<A,B>& p) {
+    return os << p.first;  // solo imprime la parte significativa (la columna)
+}
 
 // ── Entrada que el AVL guarda por nodo ──────────────────────────
+
 struct IndexEntry {
-    RecordID record_id;    // identificador lógico (Gabriela)
+    RecordID record_id;    // identificador lógico 
     uint32_t start_lba;    // LBA del primer sector → arg para engine.read()
     uint32_t num_sectors;  // cuántos accesos a disco hará engine.read()
 
@@ -45,7 +31,7 @@ struct IndexEntry {
 
 // ────────────────────────────────────────────────────────────────
 
-template <typename KeyType>
+template <typename KeyType> //soporta pair para la clave compuesta
 class AVLIndex {
 
 // ─── Nodo interno ────────────────────────────────────────────────
@@ -218,7 +204,7 @@ public:
     void resetMetrics() { comparaciones_ = 0; accesos_disco_ = 0; }
 
     // ── INSERT ──────────────────────────────────────────────────
-    // Diego llama a engine.insert() → recibe WriteResult
+    // se llama a engine.insert() → recibe WriteResult
     // Luego llama: avl.insert(key, rid, wr)
     //
     // IMPORTANTE: solo llamar si engine.insert() tuvo éxito.
@@ -236,7 +222,7 @@ public:
     // ── BÚSQUEDA EXACTA ─────────────────────────────────────────
     // Retorna nullptr si no existe.
     // Si existe, suma num_sectors a accesos_disco_ (métrica I/O).
-    // Iair llama engine.read(entry->start_lba) con el resultado.
+    //llama engine.read(entry->start_lba) con el resultado.
     const IndexEntry* search(const KeyType& key) const {
         Node* n = searchNode(root_, key);
         if (!n) return nullptr;
