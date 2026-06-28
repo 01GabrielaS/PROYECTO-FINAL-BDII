@@ -29,7 +29,14 @@ struct IndexEntry {
     }
 };
 
-// ────────────────────────────────────────────────────────────────
+// ──────Funciones para el log del recorrido del AVL────────────────────
+struct SearchResult {
+    std::vector<std::string> traversal;
+    std::vector<IndexEntry>  entries;
+};
+ //_____________________________________________________________________
+
+
 
 template <typename KeyType> //soporta pair para la clave compuesta
 class AVLIndex {
@@ -116,28 +123,32 @@ private:
         return rebalance(n);
     }
 
-// ─── SEARCH exacta ───────────────────────────────────────────────
-
-    Node* searchNode(Node* n, const KeyType& key) const {
-        if (!n) return nullptr;
-        comparaciones_++;
-        if (key == n->key) return n;
-        if (key <  n->key) return searchNode(n->left,  key);
-        return                     searchNode(n->right, key);
-    }
 
 // ─── RANGE SEARCH In-order ───────────────────────────────────────
 
     void rangeInOrder(Node* n,
                       const KeyType& lo,
                       const KeyType& hi,
-                      std::vector<std::pair<KeyType, IndexEntry>>& out) const {
+                      std::vector<std::pair<KeyType, IndexEntry>>& out,
+                      std::vector<std::string>& traversal) const {
         if (!n) return;
         comparaciones_++;
-        if (lo < n->key) rangeInOrder(n->left,  lo, hi, out);
-        if (lo <= n->key && n->key <= hi)
+        std::ostringstream oss;
+        oss<<n->key;
+        std::string k=oss.str();
+        if (lo < n->key){
+            traversal.push_back("visita:"+ k+ "->izquierda");
+            rangeInOrder(n->left,  lo, hi, out, traversal);
+        }
+        if (lo <= n->key && n->key <= hi){
+            traversal.push_back("encontrado: "+ k);
             out.push_back({n->key, n->entry});
-        if (n->key < hi) rangeInOrder(n->right, lo, hi, out);
+        }
+            
+        if (n->key < hi) {
+            traversal.push_back("visita:"+ k+ "->derecha");
+            rangeInOrder(n->right, lo, hi, out, traversal);
+        } 
     }
 
 // ─── REMOVE ──────────────────────────────────────────────────────
@@ -188,6 +199,11 @@ private:
         printNode(n->right, pre + (isLeft ? "│   " : "    "), false);
     }
 
+    struct RangeResult {
+        std::vector<std::string> traversal;
+        std::vector<std::pair<KeyType, IndexEntry>> matches;
+    };
+
 // ─── API pública ─────────────────────────────────────────────────
 public:
 
@@ -219,27 +235,16 @@ public:
         root_ = insertNode(root_, key, e);
     }
 
-    // ── BÚSQUEDA EXACTA ─────────────────────────────────────────
-    // Retorna nullptr si no existe.
-    // Si existe, suma num_sectors a accesos_disco_ (métrica I/O).
-    //llama engine.read(entry->start_lba) con el resultado.
-    const IndexEntry* search(const KeyType& key) const {
-        Node* n = searchNode(root_, key);
-        if (!n) return nullptr;
-        accesos_disco_ += n->entry.num_sectors;
-        return &n->entry;
-    }
-
     // ── BÚSQUEDA POR RANGO ──────────────────────────────────────
     // In-order O(log n + k). Resultado ascendente por clave.
-    // Iair itera el resultado y llama engine.read() por cada entrada.
-    std::vector<std::pair<KeyType, IndexEntry>>
+    //OJO: al usar clave compuesta, usamos la misma funcion para la busqueda exacta
+    RangeResult
     rangeSearch(const KeyType& lo, const KeyType& hi) const {
-        std::vector<std::pair<KeyType, IndexEntry>> result;
-        rangeInOrder(root_, lo, hi, result);
-        for (auto& [k, e] : result)
+        RangeResult res;
+        rangeInOrder(root_, lo, hi, res.matches, res.traversal);
+        for (auto& [k, e] : res.matches)
             accesos_disco_ += e.num_sectors;
-        return result;
+        return res;
     }
 
     // ── ELIMINACIÓN LÓGICA ──────────────────────────────────────

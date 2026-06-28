@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 using namespace std;
+
 // ─── Helpers ─────────────────────────────────────────────────────
 
 void separator(const std::string& t) {
@@ -22,6 +23,12 @@ void separator(const std::string& t) {
 }
 void ok  (const std::string& m) { std::cout << "  [OK]   " << m << "\n"; }
 void info(const std::string& m) { std::cout << "  [INFO] " << m << "\n"; }
+
+void printTraversal(const std::vector<std::string>& traversal) {
+    std::cout << "  Recorrido AVL (" << traversal.size() << " pasos):\n";
+    for (auto& paso : traversal)
+        std::cout << "    " << paso << "\n";
+}
 
 // Simula el WriteResult que Gabriela devuelve tras engine.insert()
 WriteResult makeWriteResult(uint32_t lba, uint32_t nsec) {
@@ -41,7 +48,7 @@ void test_insercion_balanceo() {
     // Insertar 1..7 en orden ascendente → fuerza rotaciones izquierda
     for (int i = 1; i <= 7; i++) {
         RecordID rid = RecordID::encode(1, i * 100, i);
-        WriteResult wr=makeWriteResult(i * 10, 1);
+        WriteResult wr = makeWriteResult(i * 10, 1);
         avl.insert({i, wr.start_lba}, rid, wr);
     }
 
@@ -55,9 +62,9 @@ void test_insercion_balanceo() {
 
     // Clave duplicada: guarda duplicados
     size_t antes = avl.size();
-    WriteResult wr_dup=makeWriteResult(999, 2);
+    WriteResult wr_dup = makeWriteResult(999, 2);
     avl.insert({4, wr_dup.start_lba}, RecordID::encode(1, 999, 0), wr_dup);
-    assert(avl.size() == antes+1); // este AVL usa key única: el duplicado actualiza sin aumentar nodos
+    assert(avl.size() == antes + 1);
     ok("Key compuesta: mismo valor de columna, distinto lba → nodo nuevo (duplicados permitidos)");
 }
 
@@ -68,28 +75,28 @@ void test_busqueda_exacta() {
 
     AVLIndex<std::pair<std::string, uint32_t>> avl;
 
-    // Simula un INSERT por cada nombre
-    // (Diego parsea CSV → engine.insert() → avl.insert())
     struct Row { std::string nombre; uint32_t lba; uint32_t nsec; };
     std::vector<Row> filas = {
         {"Ana",    10, 1}, {"Bruno",  20, 2}, {"Carlos", 30, 1},
         {"Diana",  40, 3}, {"Elena",  70, 1}, {"Felix",  80, 1},
-        {"Gaby",   90, 2}, {"Diana",  110, 1}, {"Irene", 120, 1}
+        {"Gaby",   90, 2}, {"Diana", 110, 1}, {"Irene", 120, 1}
     };
 
     for (auto& f : filas) {
         RecordID rid = RecordID::encode(2, f.lba, 0);
-        WriteResult wr=makeWriteResult(f.lba, f.nsec);
-        avl.insert({f.nombre, wr.start_lba}, rid,wr );
+        WriteResult wr = makeWriteResult(f.lba, f.nsec);
+        avl.insert({f.nombre, wr.start_lba}, rid, wr);
     }
 
     avl.resetMetrics();
 
-    // Búsqueda exitosa — registro con spanning (Diana, 3 sectores)
-    auto resultados = avl.rangeSearch({"Diana",0}, {"Diana", UINT32_MAX}); // search ya no funciona(necesitaría la key completa), utilizamos rangesearch 
-    assert(!resultados.empty());
+    // Búsqueda exitosa — con rangeSearch sobre clave compuesta
+    auto resultados = avl.rangeSearch({"Diana", 0}, {"Diana", UINT32_MAX});
+    assert(!resultados.matches.empty());
 
-    auto& [key, e]= resultados[0]; //tomamos el primer resultado
+    printTraversal(resultados.traversal);
+
+    auto& [key, e] = resultados.matches[0];
     std::cout << "\n  search('Diana') → " << e.to_string() << "\n";
     std::cout << "  Accesos a disco requeridos: " << e.num_sectors
               << "  (engine.read(" << e.start_lba << ") leerá la cadena)\n";
@@ -97,14 +104,14 @@ void test_busqueda_exacta() {
 
     // Búsqueda fallida
     auto miss = avl.rangeSearch({"Zeta", 0}, {"Zeta", UINT32_MAX});
-    assert(miss.empty());
-    ok("Clave inexistente retorna nullptr");
+    assert(miss.matches.empty());
+    ok("Clave inexistente retorna vacío");
 
     info(avl.metricasString());
 
     // Verificar O(log n)
     double limite = 2.0 * log2(avl.size()) + 2;
-    assert(avl.comparaciones() <= 2*(size_t)limite + 1);
+    assert(avl.comparaciones() <= 2 * (size_t)limite + 1);
     ok("Comparaciones dentro de O(log n)");
 }
 
@@ -116,24 +123,26 @@ void test_busqueda_rango() {
     AVLIndex<std::pair<int, uint32_t>> avl;
     for (int edad = 1; edad <= 50; edad++) {
         RecordID rid = RecordID::encode(3, edad, 0);
-        WriteResult wr=makeWriteResult(edad * 5, 1);
+        WriteResult wr = makeWriteResult(edad * 5, 1);
         avl.insert({edad, wr.start_lba}, rid, wr);
     }
 
     avl.resetMetrics();
-    auto res = avl.rangeSearch({20,0}, {30,UINT32_MAX});
+    auto res = avl.rangeSearch({20, 0}, {30, UINT32_MAX});
 
-    std::cout << "\n  rangeSearch(20, 30) → " << res.size() << " registros:\n";
-    for (auto& [k, e] : res)
+    printTraversal(res.traversal);
+
+    std::cout << "\n  rangeSearch(20, 30) → " << res.matches.size() << " registros:\n";
+    for (auto& [k, e] : res.matches)
         std::cout << "    edad=" << k.first << " lba=" << e.start_lba
                   << " rid=" << e.record_id.to_string() << "\n";
 
-    assert(res.size() == 11);
+    assert(res.matches.size() == 11);
     ok("11 resultados en [20,30]");
 
     // Orden ascendente (In-order)
-    for (size_t i = 1; i < res.size(); i++)
-        assert(res[i].first.first > res[i-1].first.first);
+    for (size_t i = 1; i < res.matches.size(); i++)
+        assert(res.matches[i].first.first > res.matches[i-1].first.first);
     ok("Resultados en orden ascendente");
 
     info(avl.metricasString());
@@ -148,22 +157,19 @@ void test_eliminacion_logica() {
     AVLIndex<std::pair<int, uint32_t>> avl;
     for (int i = 10; i <= 60; i += 10) {
         RecordID rid = RecordID::encode(4, i, 0);
-        WriteResult wr=makeWriteResult(i, 1);
-        avl.insert({i,wr.start_lba}, rid, wr);
+        WriteResult wr = makeWriteResult(i, 1);
+        avl.insert({i, wr.start_lba}, rid, wr);
     }
 
     std::cout << "\n  Árbol inicial (" << avl.size() << " nodos):\n";
     avl.printTree();
 
-    // Simula el callback real: engine.remove(entry.start_lba)
     bool engine_llamado = false;
     uint32_t lba_liberado = 0;
 
-    // La key del AVL en este main es un par {i, start_lba}. Para i=30, start_lba=30.
     auto keyToRemove = std::make_pair(30, (uint32_t)30);
 
     bool ok_rem = avl.remove(keyToRemove, [&](IndexEntry& e) {
-        // ← aquí Diego/Iair llamaría: engine.remove(e.start_lba)
         engine_llamado = true;
         lba_liberado   = e.start_lba;
         std::cout << "\n  [callback] engine.remove(lba=" << e.start_lba
@@ -175,12 +181,14 @@ void test_eliminacion_logica() {
     std::cout << "  LBA liberado en bitmap: " << lba_liberado << "\n";
     ok("Callback de engine.remove() ejecutado");
 
-    assert(avl.search(keyToRemove) == nullptr);
-    ok("search(key) → nullptr tras eliminación");
+    // Verificar que ya no existe (rangeSearch debe retornar vacío)
+    auto check = avl.rangeSearch({30, 0}, {30, UINT32_MAX});
+    assert(check.matches.empty());
+    ok("rangeSearch → vacío tras eliminación");
 
     auto rango = avl.rangeSearch(std::make_pair(20, (uint32_t)0),
                                  std::make_pair(40, UINT32_MAX));
-    for (auto& [k, e] : rango) assert(k.first != 30);
+    for (auto& [k, e] : rango.matches) assert(k.first != 30);
     ok("rangeSearch no incluye el nodo eliminado");
 
     std::cout << "\n  Árbol tras eliminar 30 (" << avl.size() << " nodos):\n";
@@ -195,22 +203,15 @@ void test_eliminacion_logica() {
 void test_integracion() {
     separator("TEST 5 — Flujo completo con tipos reales de Gabriela");
 
-    // Simula lo que ocurre en el proyecto integrado:
-    //   Diego: engine.insert(rid, data, size) → WriteResult
-    //          avl.insert(key, rid, wr)
-    //   Iair:  entry = avl.search(key)
-    //          data  = engine.read(entry->start_lba)
-
     AVLIndex<std::pair<std::string, uint32_t>> avl;
 
-    // Registros con spanning multi-sector
     struct Fila { std::string clave; uint16_t tid; uint32_t lba; uint32_t nsec; };
     std::vector<Fila> datos = {
-        {"GARCIA", 1,  1, 3},   // 3 sectores: registro grande
+        {"GARCIA", 1,  1, 3},
         {"SMITH",  1,  4, 1},
         {"LOPEZ",  1,  5, 2},
         {"TANAKA", 1,  7, 1},
-        {"MULLER", 1,  8, 4},   // 4 sectores: el más grande
+        {"MULLER", 1,  8, 4},
     };
 
     for (size_t i = 0; i < datos.size(); i++) {
@@ -223,20 +224,25 @@ void test_integracion() {
     avl.resetMetrics();
 
     // Búsqueda exacta
-    auto res = avl.rangeSearch({"GARCIA",0}, {"GARCIA",UINT32_MAX});
-    assert(!res.empty());
-    auto&[key,e]=res[0];
+    auto res = avl.rangeSearch({"GARCIA", 0}, {"GARCIA", UINT32_MAX});
+    assert(!res.matches.empty());
+
+    printTraversal(res.traversal);
+
+    auto& [key, e] = res.matches[0];
     std::cout << "\n  search('GARCIA'):\n"
               << "    " << e.to_string() << "\n"
               << "    → engine.read(" << e.start_lba
               << ") leerá " << e.num_sectors << " sectores\n";
     ok("Registro spanning encontrado, start_lba correcto para engine.read()");
-    
+
     // Rango
-    auto rango = avl.rangeSearch({"GARCIA",0}, {"MULLER", UINT32_MAX});
+    auto rango = avl.rangeSearch({"GARCIA", 0}, {"MULLER", UINT32_MAX});
+    printTraversal(rango.traversal);
+
     std::cout << "\n  rangeSearch('GARCIA','MULLER'):\n";
     size_t total_accesos = 0;
-    for (auto& [k, en] : rango) {
+    for (auto& [k, en] : rango.matches) {
         std::cout << "    " << std::left << std::setw(8) << k.first
                   << " lba=" << en.start_lba
                   << " nsec=" << en.num_sectors << "\n";
