@@ -139,3 +139,26 @@ std::string DiskEngine::bitmap_info() const {
     check_configured();
     return bitmap_->to_summary();
 }
+
+//  TAREA 1: format_chs_chain — Formatea el recorrido físico en disco
+
+std::string DiskEngine::format_chs_chain(const WriteResult& wr, uint32_t record_bytes) const {
+    check_configured();
+    
+    // Obtener CHS del sector inicial
+    auto ini = geometry_->lba_to_chs(wr.start_lba);
+    
+    // Obtener CHS del sector final (si la cadena de LBAs está vacía, usa el inicial)
+    uint32_t end_lba = wr.lba_chain.empty() ? wr.start_lba : wr.lba_chain.back();
+    auto fin = geometry_->lba_to_chs(end_lba);
+    
+    std::ostringstream oss;
+    oss << "[Plato: " << ini.platter
+        << ", Cara: " << ini.surface
+        << ", Pista: " << ini.track
+        << ", Sector_Inicio: " << ini.sector
+        << " → Sector_N: " << fin.sector
+        << ", Bytes: " << record_bytes << "]";
+        
+    return oss.str();
+}
