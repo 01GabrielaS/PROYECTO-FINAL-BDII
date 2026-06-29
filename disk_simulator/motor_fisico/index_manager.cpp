@@ -40,7 +40,7 @@ std::vector<IndexEntry> IndexManager::buscar_exacto(const std::string& columna,
     ColIndexKey lo{ColumnKey(valor), 0u};
     ColIndexKey hi{ColumnKey(valor), std::numeric_limits<uint32_t>::max()};
 
-    for (auto& [key, entry] : avl->rangeSearch(lo, hi))
+    for (auto& [key, entry] : avl->rangeSearch(lo, hi).matches)
         resultado.push_back(entry);
 
     return resultado;
@@ -56,7 +56,7 @@ IndexManager::buscar_rango(const std::string& columna,
 
     ColIndexKey k_lo{ColumnKey(lo), 0u};
     ColIndexKey k_hi{ColumnKey(hi), std::numeric_limits<uint32_t>::max()};
-    return avl->rangeSearch(k_lo, k_hi);
+    return avl->rangeSearch(k_lo, k_hi).matches;
 }
 
 AVLIndex<ColIndexKey>* IndexManager::get_indice(const std::string& columna) {
@@ -71,7 +71,7 @@ bool IndexManager::tiene_indice(const std::string& columna) const {
 std::vector<std::string> IndexManager::columnas() const {
     std::vector<std::string> cols;
     cols.reserve(avl_por_columna_.size());
-    for (const auto& [nombre, _] : avl_por_columna_)
-        cols.push_back(nombre);
+    for (const auto& par : avl_por_columna_)
+        cols.push_back(par.first);
     return cols;
 }

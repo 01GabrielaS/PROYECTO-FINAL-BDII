@@ -34,4 +34,4 @@ constexpr uint32_t SIZE_FLOAT = 4;
 constexpr uint32_t MAX_PLATTERS  = 16;
 constexpr uint32_t MAX_TRACKS    = 1024;
 constexpr uint32_t MAX_SECTORS   = 256;
-constexpr uint32_t DEFAULT_SECTOR_SIZE = 512;  // bytes
+constexpr uint32_t DEFAULT_SECTOR_SIZE = 520;  // bytes

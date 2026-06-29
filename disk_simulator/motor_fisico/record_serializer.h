@@ -4,20 +4,17 @@
 #include <string>
 #include <vector>
 
-// ─────────────────────────────────────────────────────────────────
-//  RecordSerializer — convierte una fila de texto (CSV) en los
-//  bytes que requiere DiskEngine::insert_fields()  (Tarea 4)
-//
-//  'storage' debe seguir vivo mientras se usa el resultado (los
-//  punteros de 'fields' apuntan dentro de storage). Por eso se pasa
-//  por referencia y se reutiliza fila por fila desde el loader.
-// ─────────────────────────────────────────────────────────────────
 class RecordSerializer {
 public:
     static std::vector<std::pair<const uint8_t*, uint32_t>> serialize_row(
         const std::vector<std::string>&    valores,
         const std::vector<ColumnDef>&      schema,
         std::vector<std::vector<uint8_t>>& storage);
+
+    static std::vector<std::string> deserialize_row(
+        const std::vector<uint8_t>& data,
+        const std::vector<ColumnDef>& schema,
+        uint32_t useful_bytes);
 
 private:
     static void serialize_int  (const std::string& v, std::vector<uint8_t>& buf);

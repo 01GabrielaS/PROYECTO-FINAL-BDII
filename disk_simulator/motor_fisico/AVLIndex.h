@@ -1,3 +1,4 @@
+#pragma once
 #include "disk_engine.h"
 #include <functional>
 #include <vector>

@@ -1,5 +1,6 @@
 #include "record_serializer.h"
 #include <cstring>
+#include <cstdio>
 #include <stdexcept>
 #include <algorithm>
 
@@ -15,8 +16,6 @@ void RecordSerializer::serialize_float(const std::string& v, std::vector<uint8_t
     std::memcpy(buf.data(), &val, sizeof(float));
 }
 
-// CHAR(N)/TEXT(N)/BLOB(N): copia hasta 'size' bytes y rellena el
-// resto con 0x00 (padding). Si v.size() > size, se trunca.
 void RecordSerializer::serialize_text(const std::string& v, uint32_t size, std::vector<uint8_t>& buf) {
     buf.assign(size, 0x00);
     uint32_t n = std::min<uint32_t>(size, static_cast<uint32_t>(v.size()));
@@ -53,4 +52,55 @@ std::vector<std::pair<const uint8_t*, uint32_t>> RecordSerializer::serialize_row
         fields.push_back({storage[i].data(), static_cast<uint32_t>(storage[i].size())});
 
     return fields;
+}
+
+std::vector<std::string> RecordSerializer::deserialize_row(
+    const std::vector<uint8_t>& data,
+    const std::vector<ColumnDef>& schema,
+    uint32_t useful_bytes)
+{
+    std::vector<std::string> valores;
+    valores.reserve(schema.size());
+
+    uint32_t cursor      = 0;
+    uint32_t sector_base = 0;
+
+    for (const auto& col : schema) {
+        uint32_t fs = col.size;
+        if (fs == 0) { valores.push_back(""); continue; }
+
+        if (cursor + fs > useful_bytes) {
+            sector_base += useful_bytes;
+            cursor = 0;
+        }
+
+        uint32_t offset = sector_base + cursor;
+
+        if (offset + fs > static_cast<uint32_t>(data.size())) {
+            valores.push_back("");
+            cursor += fs;
+            continue;
+        }
+
+        if (col.type == FieldType::INT) {
+            int32_t val = 0;
+            std::memcpy(&val, data.data() + offset, sizeof(int32_t));
+            valores.push_back(std::to_string(val));
+        } else if (col.type == FieldType::FLOAT) {
+            float val = 0.0f;
+            std::memcpy(&val, data.data() + offset, sizeof(float));
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "%.2f", val);
+            valores.push_back(buf);
+        } else {
+            const char* ptr = reinterpret_cast<const char*>(data.data() + offset);
+            uint32_t len = 0;
+            while (len < fs && ptr[len] != '\0') ++len;
+            valores.push_back(std::string(ptr, len));
+        }
+
+        cursor += fs;
+    }
+
+    return valores;
 }
