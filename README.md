@@ -8,7 +8,7 @@ Simulador de motor físico de disco que implementa la gestión completa de geome
 ## 📋 Tabla de Contenidos
 
 - [Arquitectura](#-arquitectura)
-- [Características Implementadas](#-Características Implementadas)
+- [Características Implementadas](#-CaracterísticasImplementadas)
 ---
 
 ## 🏗️ Arquitectura
