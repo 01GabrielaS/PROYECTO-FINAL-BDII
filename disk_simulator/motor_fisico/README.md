@@ -72,7 +72,7 @@ El motor físico se organiza en capas con responsabilidad única:
 Abre PowerShell, Git Bash o WSL en la carpeta principal del proyecto:
 
 ```bash
-cd /Users/usuario/UNI/db/disk_simulator/motor_fisico
+cd disk_simulator/motor_fisico
 ```
 
 Compila con este comando exacto:
