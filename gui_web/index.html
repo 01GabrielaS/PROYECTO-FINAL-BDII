@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Disco Físico</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="toast-container"></div>
+
+    <header class="main-header">
+        <div class="header-content">
+            <h1>Simulador Disco Físico</h1>
+            <p>Interfaz para inicializar hardware, cargar esquema y datos, y ejecutar consultas sobre almacenamiento físico.</p>
+        </div>
+    </header>
+
+    <div class="dashboard-grid">
+        <section class="panel fade-in">
+            <div class="panel-header">
+                <h2>1. Configuración del Disco</h2>
+            </div>
+            <div class="form-group-grid">
+                <div class="field">
+                    <label>Número de platos</label>
+                    <input type="number" id="in-platos" min="1" value="2">
+                </div>
+                <div class="field">
+                    <label>Pistas por superficie</label>
+                    <input type="number" id="in-pistas" min="1" value="20">
+                </div>
+                <div class="field">
+                    <label>Sectores por pista</label>
+                    <input type="number" id="in-sectores" min="1" value="64">
+                </div>
+                <div class="field">
+                    <label>Tamaño de sector (bytes)</label>
+                    <input type="number" id="in-bytes" min="1" value="120">
+                </div>
+            </div>
+            <button id="btn-init-disk" class="btn-primary">Inicializar disco</button>
+            <div class="info-box-metric" id="metric-capacity">Estado: <strong>No inicializado</strong></div>
+            <div class="disk-summary" id="disk-summary">Espacio del disco pendiente de inicializar.</div>
+        </section>
+
+        <section class="panel fade-in" style="animation-delay: 0.1s;">
+            <div class="panel-header">
+                <h2>2. Ingesta de Esquema y Datos</h2>
+            </div>
+            
+            <div class="sub-section">
+                <h3>Esquema de Tabla (.txt)</h3>
+                <div class="file-upload-wrapper">
+                    <input type="file" id="txt-picker" accept=".txt" class="file-input">
+                    <label for="txt-picker" class="file-label">Cargar TXT (CREATE TABLE)</label>
+                    <span id="txt-file-name">Sin archivo de esquema</span>
+                </div>
+                <div class="status-log" id="log-txt">Esperando Estructura DDL...</div>
+            </div>
+
+            <div class="sub-section" style="margin-top: 15px;">
+                <h3>Registros Masivos (.csv)</h3>
+                <div class="file-upload-wrapper">
+                    <input type="file" id="csv-picker" accept=".csv" class="file-input" disabled>
+                    <label for="csv-picker" class="file-label">Cargar CSV (Datos)</label>
+                    <span id="csv-file-name">Bloqueado hasta tener esquema</span>
+                </div>
+                <div class="status-log" id="log-csv">Inactivo.</div>
+            </div>
+        </section>
+
+        <section class="panel fade-in" style="animation-delay: 0.2s;">
+            <div class="panel-header">
+                <h2>3. Consultas</h2>
+            </div>
+            <div class="form-group-grid">
+                <div class="field">
+                    <label>Tipo de búsqueda</label>
+                    <select id="select-query-type">
+                        <option value="exact">Búsqueda Exacta</option>
+                        <option value="range">Búsqueda por Rango</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Columna objetivo</label>
+                    <select id="select-query-col">
+                        <option value="">-- Sin Esquema --</option>
+                    </select>
+                </div>
+                <div class="field" id="box-val">
+                    <label>Valor</label>
+                    <input type="text" id="query-val" placeholder="Ej. 1002 o Juan">
+                </div>
+                <div class="field" id="box-min" style="display:none;">
+                    <label>Límite mínimo</label>
+                    <input type="text" id="query-min">
+                </div>
+                <div class="field" id="box-max" style="display:none;">
+                    <label>Límite máximo</label>
+                    <input type="text" id="query-max">
+                </div>
+            </div>
+            <button id="btn-run-query" class="btn-primary" style="margin-top:20px;">Ejecutar consulta</button>
+        </section>
+
+        <section class="panel fade-in" style="animation-delay: 0.3s;">
+            <div class="panel-header">
+                <h2>4. Mapa de Bits de Sectores Ocupados</h2>
+            </div>
+            <div class="bitmap-legend">
+                <div class="leg-item"><span class="box-empty"></span> Libre</div>
+                <div class="leg-item"><span class="box-filled"></span> Asignado</div>
+            </div>
+            <div class="disk-progress-bar">
+                <div class="disk-progress-fill" id="disk-progress-fill"></div>
+            </div>
+            <div class="disk-progress-label" id="disk-progress-label">Uso del disco: 0%</div>
+            <div class="bitmap-grid" id="disk-bitmap">
+                <p class="text-muted" style="grid-column: 1/-1; text-align: center;">Inicialice el hardware.</p>
+            </div>
+        </section>
+    </div>
+
+    <section class="panel results-panel fade-in" style="animation-delay: 0.4s;">
+        <div class="panel-header">
+            <h2>Salida de Consulta</h2>
+        </div>
+        <div id="metricas-log" class="metrics-banner">Esperando ejecución...</div>
+        <div class="table-wrapper">
+            <table class="results-table" id="table-results">
+                <thead>
+                    <tr>
+                        <th style="width:45%;">Sector / CHS</th>
+                        <th style="width:55%;">Registro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="2" class="empty-state">No hay consultas ejecutadas.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+CREATE TABLE Alumnos (
+    id INT PRIMARY KEY,
+    nombres VARCHAR(50),
+    apellidos VARCHAR(50),
+    edad INT,
+    carrera VARCHAR(40),
+    promedio FLOAT
+);
