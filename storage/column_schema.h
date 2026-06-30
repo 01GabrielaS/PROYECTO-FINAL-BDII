@@ -18,12 +18,12 @@
 //  lo demás (record_serializer, csv_loader, index_manager) sigue
 //  funcionando igual, porque solo dependen de ColumnDef.
 // ─────────────────────────────────────────────────────────────────
-enum class FieldType { INT, FLOAT, CHAR, TEXT, BLOB };
+enum class FieldType { INT, FLOAT, CHAR, TEXT, BLOB, DATE, TIME, DATETIME, TIMESTAMP, YEAR };
 
 struct ColumnDef {
     std::string name;
     FieldType   type;
-    uint32_t    size;   // bytes: 4 para INT/FLOAT, N para CHAR/TEXT/BLOB
+    uint32_t    size;   // bytes: 4 para INT/FLOAT, N para CHAR/TEXT/BLOB/DATE/TIME
 };
 
 class ColumnSchemaParser {

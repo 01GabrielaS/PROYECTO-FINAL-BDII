@@ -1,5 +1,5 @@
 #include "schema_parser.h"
-#include "constants.h"
+#include "../config/constants.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>

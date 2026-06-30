@@ -6,7 +6,7 @@
 //  (Abrir desde la carpeta de motor fisico)
 // ============================================================
 
-#include "AVLIndex.h"
+#include "../indexing/AVLIndex.h"
 #include <iostream>
 #include <iomanip>
 #include <cassert>

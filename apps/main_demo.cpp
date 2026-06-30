@@ -45,11 +45,16 @@ int main(int argc, char* argv[]) {
     for (auto& col : schema) {
         std::string tipo;
         switch (col.type) {
-            case FieldType::INT:   tipo = "INT";          break;
-            case FieldType::FLOAT: tipo = "FLOAT";        break;
-            case FieldType::CHAR:  tipo = "VARCHAR/CHAR"; break;
-            case FieldType::TEXT:  tipo = "TEXT";         break;
-            case FieldType::BLOB:  tipo = "BLOB";         break;
+            case FieldType::INT:       tipo = "INT";          break;
+            case FieldType::FLOAT:     tipo = "FLOAT";        break;
+            case FieldType::CHAR:      tipo = "VARCHAR/CHAR"; break;
+            case FieldType::TEXT:      tipo = "TEXT";         break;
+            case FieldType::BLOB:      tipo = "BLOB";         break;
+            case FieldType::DATE:      tipo = "DATE";         break;
+            case FieldType::TIME:      tipo = "TIME";         break;
+            case FieldType::DATETIME:  tipo = "DATETIME";     break;
+            case FieldType::TIMESTAMP: tipo = "TIMESTAMP";    break;
+            case FieldType::YEAR:      tipo = "YEAR";         break;
         }
         std::cout << "  " << col.name << " - " << tipo << "(" << col.size << " bytes)\n";
         total_bytes += col.size;
@@ -105,7 +110,7 @@ int main(int argc, char* argv[]) {
     std::cout << "\n=== Motor de busquedas (exacto / rango / salir) ===\n";
 
     while (true) {
-        std::cout << "\nTipo de busqueda: ";
+        std::cout << "\nTipo de busqueda: \n" << std::flush;
         std::string tipo;
         if (!std::getline(std::cin, tipo)) break;
         tipo = to_upper(trim(tipo));
@@ -119,7 +124,7 @@ int main(int argc, char* argv[]) {
 
         std::cout << "Columna (";
         for (auto& c : indices.columnas()) std::cout << c << " ";
-        std::cout << "): ";
+        std::cout << "): \n" << std::flush;
         std::string columna;
         if (!std::getline(std::cin, columna)) break;
         columna = to_upper(trim(columna));
@@ -131,15 +136,15 @@ int main(int argc, char* argv[]) {
         QueryResult result;
 
         if (tipo == "EXACTO") {
-            std::cout << "Valor: ";
+            std::cout << "Valor: \n" << std::flush;
             std::string valor;
             if (!std::getline(std::cin, valor)) break;
             result = qengine.searchExact(*avl, ColumnKey(trim(valor)));
         } else {
-            std::cout << "Desde: ";
+            std::cout << "Desde: \n" << std::flush;
             std::string lo;
             if (!std::getline(std::cin, lo)) break;
-            std::cout << "Hasta: ";
+            std::cout << "Hasta: \n" << std::flush;
             std::string hi;
             if (!std::getline(std::cin, hi)) break;
             result = qengine.searchRange(*avl, ColumnKey(trim(lo)), ColumnKey(trim(hi)));

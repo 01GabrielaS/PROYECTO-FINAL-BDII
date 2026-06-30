@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
-#include "constants.h"
+#include "../config/constants.h"
 
 // ─────────────────────────────────────────────────────────────────
 //  Dirección física CHS de un sector

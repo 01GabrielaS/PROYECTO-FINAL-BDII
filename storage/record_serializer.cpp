@@ -42,7 +42,12 @@ std::vector<std::pair<const uint8_t*, uint32_t>> RecordSerializer::serialize_row
             case FieldType::FLOAT: serialize_float(valores[i], storage[i]);          break;
             case FieldType::CHAR:
             case FieldType::TEXT:
-            case FieldType::BLOB:  serialize_text(valores[i], col.size, storage[i]); break;
+            case FieldType::BLOB:
+            case FieldType::DATE:
+            case FieldType::TIME:
+            case FieldType::DATETIME:
+            case FieldType::TIMESTAMP:
+            case FieldType::YEAR:  serialize_text(valores[i], col.size, storage[i]); break;
         }
     }
 

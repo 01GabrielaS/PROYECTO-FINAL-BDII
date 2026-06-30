@@ -2,8 +2,8 @@
 #include <cassert>
 #include <cstring>
 #include <vector>
-#include "../validator.h"
-#include "../disk_engine.h"
+#include "../parsing/validator.h"
+#include "../engine/disk_engine.h"
 
 void ok(const std::string& msg) { std::cout << "[OK] " << msg << "\n"; }
 

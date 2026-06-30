@@ -3,6 +3,49 @@
 #include <sstream>
 #include <ctime>
 #include <atomic>
+#include <cstdlib>
+
+static std::string trim_csv_field(const std::string& s) {
+    size_t start = 0;
+    size_t end = s.size();
+    while (start < end && std::isspace(static_cast<unsigned char>(s[start]))) start++;
+    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) end--;
+    return s.substr(start, end - start);
+}
+
+static bool is_integer_value(const std::string& s) {
+    if (s.empty()) return false;
+    char* end = nullptr;
+    std::strtol(s.c_str(), &end, 10);
+    return end && *end == '\0';
+}
+
+static bool is_float_value(const std::string& s) {
+    if (s.empty()) return false;
+    char* end = nullptr;
+    std::strtof(s.c_str(), &end);
+    return end && *end == '\0';
+}
+
+static bool looks_like_header_row(const std::vector<std::string>& row,
+                                 const std::vector<ColumnDef>& schema) {
+    if (row.size() != schema.size()) return true;
+    int mismatches = 0;
+    for (size_t i = 0; i < schema.size(); ++i) {
+        const std::string value = trim_csv_field(row[i]);
+        switch (schema[i].type) {
+            case FieldType::INT:
+                if (!is_integer_value(value)) mismatches++;
+                break;
+            case FieldType::FLOAT:
+                if (!is_float_value(value)) mismatches++;
+                break;
+            default:
+                break;
+        }
+    }
+    return mismatches > 0;
+}
 
 // ── Parser de línea CSV con soporte de comillas ─────────────────
 //   - Una coma DENTRO de comillas ("a, b") no separa campos.
@@ -42,6 +85,71 @@ std::vector<std::string> CsvLoader::split_csv_line(const std::string& linea) {
     return campos;
 }
 
+bool CsvLoader::read_csv_record(std::ifstream& file,
+                                      std::vector<std::string>& row)
+{
+    row.clear();
+    std::string line;
+    std::string record;
+    bool in_quotes = false;
+
+    while (std::getline(file, line)) {
+        if (!record.empty())
+            record.push_back('\n');
+        record += line;
+
+        in_quotes = false;
+        for (size_t i = 0; i < record.size(); ++i) {
+            char c = record[i];
+            if (c == '"') {
+                if (i + 1 < record.size() && record[i + 1] == '"') {
+                    ++i;
+                } else {
+                    in_quotes = !in_quotes;
+                }
+            }
+        }
+
+        if (!in_quotes) {
+            row = split_csv_line(record);
+            for (auto& campo : row)
+                campo = trim_csv_field(campo);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool CsvLoader::is_header_row(const std::vector<std::string>& row,
+                                     const std::vector<ColumnDef>& schema)
+{
+    if (row.size() != schema.size())
+        return false;
+
+    bool name_match = true;
+    int mismatches = 0;
+
+    auto normalize = [](std::string s) {
+        std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return std::toupper(c); });
+        return s;
+    };
+
+    for (size_t i = 0; i < schema.size(); ++i) {
+        const std::string cell = normalize(trim_csv_field(row[i]));
+        const std::string header = normalize(schema[i].name);
+        if (cell != header)
+            name_match = false;
+
+        if (schema[i].type == FieldType::INT && !is_integer_value(cell))
+            mismatches++;
+        if (schema[i].type == FieldType::FLOAT && !is_float_value(cell))
+            mismatches++;
+    }
+
+    return name_match || mismatches > 0;
+}
+
 // ── Generador de RecordID único ─────────────────────────────────
 //   RecordID::encode(table_id, timestamp_low[12 bits], seq[6 bits])
 //   Usar std::time() + (i % 64) puede repetirse si se cargan más de
@@ -74,67 +182,56 @@ CargaResultado CsvLoader::cargar(const std::string&            filepath,
         return res;
     }
 
-    // ── Paso 1: leer todas las filas a RAM (primera línea = encabezado) ──
-    std::vector<std::vector<std::string>> filas;
-    std::string linea;
-    bool primera = true;
-    while (std::getline(file, linea)) {
-        if (linea.empty()) continue;
-        if (primera) { primera = false; continue; }
-        filas.push_back(split_csv_line(linea));
+    // ── Paso 1: leer y procesar filas en streaming ────────────────
+    std::vector<std::string> fila;
+    bool                    primera_fila = true;
+    std::vector<std::vector<uint8_t>> storage;
+
+    while (read_csv_record(file, fila)) {
+        if (fila.empty()) continue;
+
+        if (primera_fila) {
+            primera_fila = false;
+            if (is_header_row(fila, schema)) {
+                continue;
+            }
+        }
+
+        res.filas_leidas++;
+
+        if (fila.size() != schema.size()) {
+            res.filas_omitidas++;
+            continue;
+        }
+
+        try {
+            auto fields = RecordSerializer::serialize_row(fila, schema, storage);
+            RecordID rid = siguiente_record_id(table_id);
+            WriteResult wr = engine.insert_fields(rid, fields);
+            indices.indexar_registro(schema, fila, rid, wr);
+            res.filas_insertadas++;
+        } catch (const InsertSpaceError&) {
+            res.filas_omitidas++;
+            res.carga_parcial = true;
+            break;
+        } catch (const std::exception& ex) {
+            res.filas_omitidas++;
+            continue;
+        }
     }
-    res.filas_leidas = static_cast<uint32_t>(filas.size());
 
     if (res.filas_leidas == 0) {
         res.mensaje = "El CSV no tiene filas de datos.";
         return res;
     }
 
-    // ── Capa 3: validación global previa ──────────────────────────
-    std::vector<uint32_t> field_sizes = ColumnSchemaParser::field_sizes(schema);
-
-    uint32_t secs_por_fila   = engine.sectors_needed_for_fields(field_sizes);
-    uint32_t secs_necesarios = res.filas_leidas * secs_por_fila;
-    uint32_t secs_libres     = engine.free_sectors();
-
-    uint32_t filas_a_cargar = res.filas_leidas;
-
-    if (secs_necesarios > secs_libres) {
-        if (!permitir_carga_parcial) {
-            res.mensaje =
-                "Espacio insuficiente: se necesitan " + std::to_string(secs_necesarios) +
-                " sectores y hay " + std::to_string(secs_libres) + " libres. Carga cancelada.";
-            return res;
-        }
-        filas_a_cargar    = secs_por_fila > 0 ? secs_libres / secs_por_fila : 0;
-        res.carga_parcial = true;
-        res.mensaje =
-            "Espacio insuficiente para las " + std::to_string(res.filas_leidas) +
-            " filas. Se cargarán solo " + std::to_string(filas_a_cargar) + " (carga parcial).";
-    }
-
-    // ── Paso 2: serializar + insertar en disco + indexar, fila por fila ──
-    std::vector<std::vector<uint8_t>> storage;
-
-    for (uint32_t i = 0; i < filas_a_cargar; ++i) {
-        try {
-            auto fields = RecordSerializer::serialize_row(filas[i], schema, storage);
-
-            RecordID rid = siguiente_record_id(table_id);
-
-            WriteResult wr = engine.insert_fields(rid, fields);
-            indices.indexar_registro(schema, filas[i], rid, wr);
-
-            res.filas_insertadas++;
-        } catch (const InsertSpaceError&) {
-            // Margen de seguridad por si el cálculo de Capa 3 falla en el borde
-            res.filas_omitidas++;
-            res.carga_parcial = true;
-        }
-    }
-
-    if (res.mensaje.empty())
+    if (res.carga_parcial) {
+        res.mensaje = "Carga parcial: " + std::to_string(res.filas_insertadas) +
+                      " filas insertadas, " + std::to_string(res.filas_omitidas) +
+                      " filas omitidas por falta de espacio o formato.";
+    } else {
         res.mensaje = "Carga completa: " + std::to_string(res.filas_insertadas) + " filas insertadas.";
+    }
 
     return res;
 }

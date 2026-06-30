@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
 #include <cstring>
-#include "constants.h"
-#include "record_id.h"
+#include "../config/constants.h"
+#include "../storage/record_id.h"
 
 // ─────────────────────────────────────────────────────────────────
 //  SectorHeader — encabezado de 9 bytes al inicio de cada sector

@@ -1,7 +1,7 @@
 #pragma once
-#include "query_engine.h"
-#include "disk_engine.h"
-#include "column_schema.h"
+#include "../engine/query_engine.h"
+#include "../engine/disk_engine.h"
+#include "../storage/column_schema.h"
 #include <string>
 #include <vector>
 #include <ostream>

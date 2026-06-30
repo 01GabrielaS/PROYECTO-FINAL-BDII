@@ -2,10 +2,10 @@
 #include <cassert>
 #include <cstring>
 #include <fstream>
-#include "../constants.h"
-#include "../disk_geometry.h"
-#include "../free_bitmap.h"
-#include "../disk_writer.h"
+#include "../config/constants.h"
+#include "../hardware/disk_geometry.h"
+#include "../hardware/free_bitmap.h"
+#include "../hardware/disk_writer.h"
 
 void ok(const std::string& msg) { std::cout << "[OK] " << msg << "\n"; }
 

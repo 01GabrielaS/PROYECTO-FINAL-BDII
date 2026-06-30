@@ -6,7 +6,7 @@
 #include "disk_geometry.h"
 #include "free_bitmap.h"
 #include "sector_header.h"
-#include "record_id.h"
+#include "../storage/record_id.h"
 
 // ─────────────────────────────────────────────────────────────────
 //  Resultado de una escritura: informa al llamador (y al AVL)

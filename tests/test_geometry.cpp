@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cassert>
 #include <stdexcept>
-#include "disk_geometry.h"
+#include "../hardware/disk_geometry.h"
 
 // ── Utilidad ──────────────────────────────────────────────────
 void ok(const std::string& msg) { std::cout << "[OK] " << msg << "\n"; }

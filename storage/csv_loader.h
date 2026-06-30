@@ -1,7 +1,8 @@
 #pragma once
-#include "disk_engine.h"
+#include "../engine/disk_engine.h"
 #include "record_serializer.h"
-#include "index_manager.h"
+#include "../indexing/index_manager.h"
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -39,4 +40,8 @@ public:
 
 private:
     static std::vector<std::string> split_csv_line(const std::string& linea);
+    static bool                     read_csv_record(std::ifstream& file,
+                                                     std::vector<std::string>& row);
+    static bool                     is_header_row(const std::vector<std::string>& row,
+                                                    const std::vector<ColumnDef>& schema);
 };

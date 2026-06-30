@@ -3,11 +3,11 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include "disk_geometry.h"
-#include "free_bitmap.h"
-#include "disk_writer.h"
-#include "validator.h"
-#include "record_id.h"
+#include "../hardware/disk_geometry.h"
+#include "../hardware/free_bitmap.h"
+#include "../hardware/disk_writer.h"
+#include "../parsing/validator.h"
+#include "../storage/record_id.h"
 
 class DiskEngine {
 public:

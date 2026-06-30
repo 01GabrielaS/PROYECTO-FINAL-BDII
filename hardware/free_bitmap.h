@@ -3,7 +3,7 @@
 #include <vector>
 #include <stdexcept>
 #include <string>
-#include "constants.h"
+#include "../config/constants.h"
 
 // ─────────────────────────────────────────────────────────────────
 //  FreeBitmap — mapa de bits de sectores libres/ocupados

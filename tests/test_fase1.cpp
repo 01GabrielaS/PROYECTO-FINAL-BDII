@@ -1,9 +1,9 @@
 #include <iostream>
 #include <cassert>
 #include <ctime>
-#include "../constants.h"
-#include "../record_id.h"
-#include "../sector_header.h"
+#include "../config/constants.h"
+#include "../storage/record_id.h"
+#include "../hardware/sector_header.h"
 
 void test_constants() {
     assert(FLAG_FREE  == 0x00);

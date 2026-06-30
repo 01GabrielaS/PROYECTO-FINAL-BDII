@@ -1,5 +1,5 @@
 #pragma once
-#include "AVLIndex.h"
+#include "../indexing/AVLIndex.h"
 #include "disk_engine.h"
 #include <vector>
 #include <string>

@@ -1,7 +1,7 @@
 #pragma once
 #include "AVLIndex.h"
-#include "column_key.h"
-#include "column_schema.h"
+#include "../storage/column_key.h"
+#include "../storage/column_schema.h"
 #include <unordered_map>
 #include <memory>
 #include <string>

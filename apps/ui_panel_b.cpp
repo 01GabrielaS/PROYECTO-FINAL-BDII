@@ -1,5 +1,5 @@
 #include "ui_panel_b.h"
-#include "record_serializer.h"
+#include "../storage/record_serializer.h"
 #include <iomanip>
 
 static void sep(std::ostream& out, const std::string& title) {

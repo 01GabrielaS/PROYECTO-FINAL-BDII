@@ -2,8 +2,8 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
-#include "disk_geometry.h"
-#include "free_bitmap.h"
+#include "../hardware/disk_geometry.h"
+#include "../hardware/free_bitmap.h"
 
 // ─────────────────────────────────────────────────────────────────
 //  Excepciones tipadas — el motor lanza estas, Diego e Iair
