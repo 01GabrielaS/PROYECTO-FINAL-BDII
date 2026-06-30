@@ -24,12 +24,18 @@ static std::string trim(const std::string& s) {
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-        std::cerr << "Uso: " << argv[0] << " <schema.txt> <datos.csv>\n";
+        std::cerr << "Uso: " << argv[0] << " <schema.txt> <datos.csv> [platters] [tracks] [sectors_per_track] [sector_size]\n";
         return 1;
     }
 
     std::string schema_file = argv[1];
     std::string csv_file    = argv[2];
+
+    // Geometría configurable por argumentos opcionales (defaults: 2,20,64,120)
+    uint32_t platters         = (argc > 3) ? static_cast<uint32_t>(std::stoul(argv[3])) : 2;
+    uint32_t tracks           = (argc > 4) ? static_cast<uint32_t>(std::stoul(argv[4])) : 20;
+    uint32_t sectors_per_track = (argc > 5) ? static_cast<uint32_t>(std::stoul(argv[5])) : 64;
+    uint32_t sector_size      = (argc > 6) ? static_cast<uint32_t>(std::stoul(argv[6])) : 120;
 
     std::cout << "\n*** Demo Disco Virtual - Proyecto BDII ***\n\n";
 
@@ -64,7 +70,7 @@ int main(int argc, char* argv[]) {
     // 2. Configurar disco
     DiskEngine engine;
     try {
-        engine.configure(2, 20, 64, 120, "disco_demo.bin");
+        engine.configure(platters, tracks, sectors_per_track, sector_size, "disco_demo.bin");
     } catch (const std::exception& e) {
         std::cerr << "Error configurando disco: " << e.what() << "\n";
         return 1;

@@ -55,10 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         totalSectoresGlobal = data.total_sectors;
         sectorSize = data.sector_size;
         metricCapacity.innerHTML = `Disco inicializado: <strong>${formatNumber(totalSectoresGlobal)} sectores</strong> · Sector = ${formatNumber(sectorSize)} bytes.`;
-        document.getElementById('in-platos').value = data.platters;
-        document.getElementById('in-pistas').value = data.tracks;
-        document.getElementById('in-sectores').value = data.sectors_per_track;
-        document.getElementById('in-bytes').value = data.sector_size;
+        // NO sobreescribimos los inputs — el usuario los configuró adrede
         actualizarMapaFisico(0);
         updateDiskSummary(0);
     }
@@ -119,7 +116,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('btn-init-disk').addEventListener('click', async () => {
-        const res = await fetch('/api/init', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const platters         = parseInt(document.getElementById('in-platos').value)   || 2;
+        const tracks           = parseInt(document.getElementById('in-pistas').value)   || 20;
+        const sectors_per_track = parseInt(document.getElementById('in-sectores').value) || 64;
+        const sector_size      = parseInt(document.getElementById('in-bytes').value)    || 120;
+
+        const res = await fetch('/api/init', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ platters, tracks, sectors_per_track, sector_size })
+        });
         const data = await res.json();
         if (data.success) {
             updateGeometryView(data);
@@ -186,10 +192,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            statusCsv.innerHTML = `<span style="color:#7dd3fc">Carga completa: ${data.summary.total_insertadas} filas. Uso disco: ${data.sectores_ocupados} sectores.</span>`;
-            actualizarMapaFisico(data.sectores_ocupados || totalSectoresGlobal);
-            updateDiskSummary(data.sectores_ocupados || 0);
-            showToast('Datos cargados en el disco físico.', 'success');
+            const omitidas = data.summary.total_omitidas || 0;
+            const insertadas = data.summary.total_insertadas || 0;
+            if (insertadas === 0) {
+                statusCsv.innerHTML = `<span style="color:red">Error: el disco no tiene espacio suficiente. 0 filas insertadas.</span>`;
+                showToast('El CSV supera la capacidad del disco. Ninguna fila fue insertada.', 'error');
+            } else if (omitidas > 0) {
+                statusCsv.innerHTML = `<span style="color:#fbbf24">Carga parcial: ${insertadas} filas insertadas, ${omitidas} omitidas por falta de espacio. Uso disco: ${data.sectores_ocupados} sectores.</span>`;
+                actualizarMapaFisico(data.sectores_ocupados || totalSectoresGlobal);
+                updateDiskSummary(data.sectores_ocupados || 0);
+                showToast(`Carga parcial: ${omitidas} filas no cupieron en el disco.`, 'error');
+            } else {
+                statusCsv.innerHTML = `<span style="color:#7dd3fc">Carga completa: ${insertadas} filas. Uso disco: ${data.sectores_ocupados} sectores.</span>`;
+                actualizarMapaFisico(data.sectores_ocupados || totalSectoresGlobal);
+                updateDiskSummary(data.sectores_ocupados || 0);
+                showToast('Datos cargados en el disco físico.', 'success');
+            }
         };
         reader.readAsText(file);
     });

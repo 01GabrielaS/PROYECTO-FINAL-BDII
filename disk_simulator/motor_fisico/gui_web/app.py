@@ -9,15 +9,20 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), '../data')
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # Nombre del binario compilado real
-BINARY_PATH = os.path.join(os.path.dirname(__file__), '../apps/main_demo')
+# Detecta automáticamente .exe en Windows
+_base_binary = os.path.join(os.path.dirname(__file__), '../apps/demo')
+BINARY_PATH = _base_binary + '.exe' if os.name == 'nt' else _base_binary
 
-# Configuración del motor C++ tal como está compilado hoy
+# Configuración del motor C++ — defaults si el usuario no configura nada
 DEFAULT_GEOMETRY = {
     'platters': 2,
     'tracks': 20,
     'sectors_per_track': 64,
     'sector_size': 120,
 }
+
+# Geometría activa (se sobreescribe con cada llamada a /api/init)
+CURRENT_GEOMETRY = dict(DEFAULT_GEOMETRY)
 
 # Variable global para mantener el proceso de búsqueda abierto
 process = None
@@ -169,15 +174,33 @@ def index():
 
 @app.route('/api/init', methods=['POST'])
 def init_disk():
-    total_sectors = (DEFAULT_GEOMETRY['platters'] * 2 *
-                     DEFAULT_GEOMETRY['tracks'] * DEFAULT_GEOMETRY['sectors_per_track'])
+    global CURRENT_GEOMETRY
+    body = request.get_json(silent=True) or {}
+
+    # Leer valores enviados por el frontend; caer a defaults si faltan o son inválidos
+    def safe_int(key, default):
+        try:
+            v = int(body.get(key, default))
+            return v if v > 0 else default
+        except (TypeError, ValueError):
+            return default
+
+    CURRENT_GEOMETRY = {
+        'platters':          safe_int('platters',          DEFAULT_GEOMETRY['platters']),
+        'tracks':            safe_int('tracks',            DEFAULT_GEOMETRY['tracks']),
+        'sectors_per_track': safe_int('sectors_per_track', DEFAULT_GEOMETRY['sectors_per_track']),
+        'sector_size':       safe_int('sector_size',       DEFAULT_GEOMETRY['sector_size']),
+    }
+
+    total_sectors = (CURRENT_GEOMETRY['platters'] * 2 *
+                     CURRENT_GEOMETRY['tracks'] * CURRENT_GEOMETRY['sectors_per_track'])
     return jsonify({
         "success": True,
-        "platters": DEFAULT_GEOMETRY['platters'],
-        "tracks": DEFAULT_GEOMETRY['tracks'],
-        "sectors_per_track": DEFAULT_GEOMETRY['sectors_per_track'],
-        "sector_size": DEFAULT_GEOMETRY['sector_size'],
-        "total_sectors": total_sectors
+        "platters":          CURRENT_GEOMETRY['platters'],
+        "tracks":            CURRENT_GEOMETRY['tracks'],
+        "sectors_per_track": CURRENT_GEOMETRY['sectors_per_track'],
+        "sector_size":       CURRENT_GEOMETRY['sector_size'],
+        "total_sectors":     total_sectors
     })
 
 @app.route('/api/create-table', methods=['POST'])
@@ -221,8 +244,13 @@ def load_csv():
 
     try:
         # Lanzamos tu motor real C++ en segundo plano interactivo
+        # Pasamos la geometría activa como argumentos opcionales
         process = subprocess.Popen(
-            [binary, txt_path, csv_path],
+            [binary, txt_path, csv_path,
+             str(CURRENT_GEOMETRY['platters']),
+             str(CURRENT_GEOMETRY['tracks']),
+             str(CURRENT_GEOMETRY['sectors_per_track']),
+             str(CURRENT_GEOMETRY['sector_size'])],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
