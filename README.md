@@ -67,12 +67,55 @@ El motor físico se organiza en capas con responsabilidad única:
 - Gestión de cabeceras de sector (`sector_header`)
 
 
-## Compilación (si se abre desde la carpeta "motor_fisico" en la terminal de Windows)
+## Compilación rápida en Windows
+
+Abre PowerShell, Git Bash o WSL en la carpeta principal del proyecto:
+
 ```bash
-// ─── Test motor físico ───
+cd /Users/usuario/UNI/db/disk_simulator/motor_fisico
+```
 
-g++ -std=c++17 main_demo.cpp column_schema.cpp csv_loader.cpp disk_engine.cpp disk_geometry.cpp disk_writer.cpp free_bitmap.cpp index_manager.cpp record_id.cpp record_serializer.cpp schema_parser.cpp sector_header.cpp validator.cpp query_engine.cpp ui_panel_b.cpp -o demo
+Compila con este comando exacto:
 
-// Para correr el ejecutable
-.\demo schema_sin_pk.txt alumnos.csv
+```bash
+g++ -std=c++17 apps/main_demo.cpp apps/ui_panel_b.cpp storage/column_schema.cpp storage/csv_loader.cpp engine/disk_engine.cpp hardware/disk_geometry.cpp hardware/disk_writer.cpp hardware/free_bitmap.cpp indexing/index_manager.cpp storage/record_id.cpp storage/record_serializer.cpp parsing/schema_parser.cpp hardware/sector_header.cpp parsing/validator.cpp engine/query_engine.cpp -o apps/demo.exe
+```
+
+> Si usas WSL, puedes cambiar `-o apps/demo.exe` por `-o apps/demo`.
+
+### Ejecución
+
+Ejecuta el demo con el esquema y el CSV de ejemplo:
+
+En PowerShell:
+
+```powershell
+.\apps\demo.exe data\estructura.txt data\alumnos.csv
+```
+
+En Git Bash o WSL:
+
+```bash
+./apps/demo.exe data/estructura.txt data/alumnos.csv
+```
+
+> Si compilaste con `apps/demo`, ejecuta `./apps/demo data/estructura.txt data/alumnos.csv`.
+
+---
+
+## Archivos importantes
+
+- `apps/main_demo.cpp` — programa principal del demo.
+- `data/estructura.txt` — ejemplo de esquema.
+- `data/alumnos.csv` — ejemplo de datos.
+- `gui_web/` — frontend web en Flask.
+- `storage/`, `hardware/`, `engine/`, `indexing/`, `parsing/` — capas del motor.
+
+---
+
+## Notas rápidas
+
+- Asegúrate de tener `g++` instalado y accesible desde tu terminal.
+- Si aparece un error de compilación, revisa que estés en la carpeta `motor_fisico`.
+- `git status` te ayuda a ver los archivos modificados antes de subir.
 
